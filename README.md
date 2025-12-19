@@ -12,28 +12,6 @@ Este projeto utiliza Python com a biblioteca **greenlet** para processamento ass
 - XAMPP (ambiente local)
 - pip (gerenciador de pacotes Python)
 
-## Instalação
-
-1. Navegue até o diretório do projeto:
-```bash
-cd c:\xampp\htdocs\VerificarClimaObras
-```
-
-2. Crie um ambiente virtual:
-```bash
-python -m venv venv
-```
-
-3. Ative o ambiente virtual:
-```bash
-# Windows
-venv\Scripts\activate
-```
-
-4. Instale as dependências:
-```bash
-pip install -r requirements.txt
-```
 
 ## Estrutura do Projeto
 
