@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Clima Obras</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+        
+        #map { height: 100vh; width: 100%; }
+        
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 12px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 1001;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #0078d4;
+            font-size: 18px;
+        }
+        .header-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .user-info {
+            color: #666;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #0078d4;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #005a9e;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            bottom: 0;
+            width: 350px;
+            background: white;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: transform 0.3s;
+            overflow-y: auto;
+        }
+        .sidebar.collapsed {
+            transform: translateX(350px);
+        }
+        .sidebar-toggle {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: none;
+            width: 40px;
+            height: 60px;
+            border-radius: 6px 0 0 6px;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .obra-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.3s;
+            position: relative;
+        }
+        .obra-item:hover {
+            background: #f5f5f5;
+        }
+        .obra-item.active {
+            background: #e3f2fd;
+            border-left: 4px solid #0078d4;
+        }
+        .obra-nome {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            padding-right: 70px;
+        }
+        .obra-endereco {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .obra-responsavel {
+            font-size: 12px;
+            color: #999;
+        }
+        .obra-actions {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .btn-edit {
+            background: #0078d4;
+            color: white;
+        }
+        .btn-edit:hover {
+            background: #005a9e;
+        }
+        .btn-delete {
+            background: #d32f2f;
+            color: white;
+        }
+        .btn-delete:hover {
+            background: #b71c1c;
+        }
+        
+        /* Layer Control */
+        .layer-control {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            background: rgba(40, 40, 40, 0.95);
+            padding: 12px;
+            border-radius: 8px;
+            z-index: 999;
+            min-width: 180px;
+        }
+        .layer-control-title {
+            color: white;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .layer-item {
+            color: white;
+            padding: 6px;
+            margin: 4px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+        }
+        .layer-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .layer-item input {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        .modal-header h2 {
+            color: #333;
+            font-size: 22px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        /* Confirmação */
+        .confirm-dialog {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .confirm-dialog h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .confirm-dialog p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .confirm-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌤️ Clima Obras</h1>
+        <div class="header-right">
+            <span class="user-info"><span id="userName"></span> (<span id="userType"></span>)</span>
+            <button class="btn btn-primary" id="btnNovaObra" style="display:none;">+ Nova Obra</button>
+            <button class="btn btn-primary" id="btnNovoEngenheiro" style="display:none;">👷 Engenheiros</button>
+            <button class="btn btn-primary" id="btnDisparoWhatsapp" style="display:none;">
+                📱 Disparar WhatsApp
+                <span id="whatsappStatus" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:5px;background:#ccc;" title="Status Evolution API"></span>
+            </button>
+            <button class="btn btn-primary" id="btnNovoUsuario" style="display:none;">+ Novo Usuário</button>
+            <button class="btn btn-secondary" onclick="logout()">Sair</button>
+        </div>
+    </div>
+    
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-toggle" onclick="toggleSidebar()">
+            <span id="toggleIcon">◀</span>
+        </button>
+        <div class="sidebar-header">
+            <h2>Obras Cadastradas</h2>
+            <p style="font-size:13px;color:#666;" id="obraCount">0 obras</p>
+        </div>
+        <div id="obrasList"></div>
+    </div>
+    
+    <div class="layer-control">
+        <div class="layer-control-title">⚙️ Camadas</div>
+        <div class="layer-item">
+            <input type="checkbox" id="rainLayer" checked>
+            <label for="rainLayer">☔ Chuva</label>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="cloudsLayer">
+            <label for="cloudsLayer">☁️ Nuvens</label>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="tempLayer">
+            <label for="tempLayer">🌡️ Temperatura</label>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Modal Nova Obra -->
+    <div class="modal" id="modalObra">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalObraTitle">Cadastrar Nova Obra</h2>
+            </div>
+            <form id="formObra">
+                <input type="hidden" id="obraId">
+                <div class="form-group">
+                    <label>Nome da Obra *</label>
+                    <input type="text" id="obraNome" required>
+                </div>
+                <div class="form-group">
+                    <label>Endereço *</label>
+                    <input type="text" id="obraEndereco" required>
+                </div>
+                <div class="form-group">
+                    <label>Latitude *</label>
+                    <input type="number" step="any" id="obraLatitude" required>
+                </div>
+                <div class="form-group">
+                    <label>Longitude *</label>
+                    <input type="number" step="any" id="obraLongitude" required>
+                </div>
+                <div class="form-group">
+                    <label>Responsável</label>
+                    <input type="text" id="obraResponsavel">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="obraDescricao" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalObra')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Novo Usuário -->
+    <div class="modal" id="modalUsuario">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cadastrar Novo Usuário</h2>
+            </div>
+            <form id="formUsuario">
+                <div class="form-group">
+                    <label>Nome *</label>
+                    <input type="text" id="usuarioNome" required>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="usuarioEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha *</label>
+                    <input type="password" id="usuarioSenha" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo *</label>
+                    <select id="usuarioTipo" required>
+                        <option value="membro">Membro</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalUsuario')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Engenheiros -->
+    <div class="modal" id="modalEngenheiros">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Gerenciar Engenheiros</h2>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-primary" onclick="novoEngenheiro()">+ Adicionar Engenheiro</button>
+            </div>
+            <div id="engenheirosLista" style="max-height: 400px; overflow-y: auto;">
+                <!-- Lista será preenchida via JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modalEngenheiros')">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Cadastrar/Editar Engenheiro -->
+    <div class="modal" id="modalEngenheiroForm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalEngenheiroTitle">Cadastrar Engenheiro</h2>
+            </div>
+            <form id="formEngenheiro">
+                <input type="hidden" id="engenheiroId">
+                <div class="form-group">
+                    <label>Nome *</label>
+                    <input type="text" id="engenheiroNome" required>
+                </div>
+                <div class="form-group">
+                    <label>WhatsApp * (com DDD)</label>
+                    <input type="text" id="engenheiroWhatsapp" placeholder="47999999999" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="engenheiroEmail">
+                </div>
+                <div class="form-group">
+                    <label>Cargo</label>
+                    <input type="text" id="engenheiroCargo" placeholder="Ex: Engenheiro Civil">
+                </div>
+                <div class="form-group">
+                    <label>Obra Associada</label>
+                    <select id="engenheiroObra">
+                        <option value="">Nenhuma</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalEngenheiroForm')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Disparo WhatsApp -->
+    <div class="modal" id="modalDisparo">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📱 Disparar Mensagem WhatsApp</h2>
+            </div>
+            <form id="formDisparo">
+                <div class="form-group">
+                    <label>Filtro de Envio *</label>
+                    <select id="disparoFiltro" required onchange="toggleObraSelect()">
+                        <option value="todos">Enviar para todos os engenheiros</option>
+                        <option value="obra_especifica">Enviar para engenheiros de uma obra específica</option>
+                    </select>
+                </div>
+                <div class="form-group" id="disparoObraGroup" style="display:none;">
+                    <label>Selecionar Obra *</label>
+                    <select id="disparoObra">
+                        <option value="">Selecione uma obra</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mensagem *</label>
+                    <textarea id="disparoMensagem" rows="6" required placeholder="Digite a mensagem que será enviada via WhatsApp..."></textarea>
+                    <small style="color:#666;">Dica: Mencione informações sobre o clima e medidas de segurança.</small>
+                </div>
+                <div class="form-group">
+                    <div style="background:#fff3cd; padding:10px; border-radius:6px; font-size:13px;">
+                        ⚠️ <strong>Atenção:</strong> Esta mensagem será enviada para os WhatsApps cadastrados dos engenheiros.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalDisparo')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar Mensagens</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map, markers = [], currentUser = null;
+        let deleteObraId = null;
+        
+        // Inicializar mapa
+        map = L.map('map').setView([-15.7801, -47.9292], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Camadas de clima
+        const apiKey = 'SUA_API_KEY_AQUI';
+        let rainLayer = L.tileLayer(
+            `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${apiKey}`,
+            { attribution: 'OpenWeatherMap', opacity: 0.6 }
+        ).addTo(map);
+        
+        let cloudsLayer = L.tileLayer(
+            `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${apiKey}`,
+            { attribution: 'OpenWeatherMap', opacity: 0.5 }
+        );
+        
+        let tempLayer = L.tileLayer(
+            `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apiKey}`,
+            { attribution: 'OpenWeatherMap', opacity: 0.6 }
+        );
+        
+        // Controles de camadas
+        document.getElementById('rainLayer').addEventListener('change', function(e) {
+            if (e.target.checked) rainLayer.addTo(map);
+            else map.removeLayer(rainLayer);
+        });
+        
+        document.getElementById('cloudsLayer').addEventListener('change', function(e) {
+            if (e.target.checked) cloudsLayer.addTo(map);
+            else map.removeLayer(cloudsLayer);
+        });
+        
+        document.getElementById('tempLayer').addEventListener('change', function(e) {
+            if (e.target.checked) tempLayer.addTo(map);
+            else map.removeLayer(tempLayer);
+        });
+        
+        // Verificar usuário logado
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me', { credentials: 'include' });
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                currentUser = await response.json();
+                document.getElementById('userName').textContent = currentUser.nome;
+                document.getElementById('userType').textContent = currentUser.tipo;
+                
+                if (currentUser.tipo === 'admin') {
+                    document.getElementById('btnNovaObra').style.display = 'block';
+                    document.getElementById('btnNovoEngenheiro').style.display = 'block';
+                    document.getElementById('btnDisparoWhatsapp').style.display = 'block';
+                    document.getElementById('btnNovoUsuario').style.display = 'block';
+                    
+                    // Verificar status do WhatsApp
+                    checkWhatsAppStatus();
+                }
+                
+                loadObras();
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+        
+        // Verificar status Evolution API
+        async function checkWhatsAppStatus() {
+            try {
+                const response = await fetch('/api/whatsapp/status', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const statusIndicator = document.getElementById('whatsappStatus');
+                    if (statusIndicator) {
+                        statusIndicator.style.background = data.conectado ? '#4caf50' : '#f44336';
+                        statusIndicator.title = data.mensagem;
+                    }
+                }
+            } catch (error) {
+                console.log('Erro ao verificar status WhatsApp:', error);
+            }
+        }
+        
+        // Carregar obras
+        async function loadObras() {
+            try {
+                const response = await fetch('/api/localizacoes', { credentials: 'include' });
+                const obras = await response.json();
+                
+                console.log('Obras carregadas:', obras);
+                
+                document.getElementById('obraCount').textContent = `${obras.length} obra(s)`;
+                
+                const obrasList = document.getElementById('obrasList');
+                obrasList.innerHTML = '';
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+                
+                obras.forEach(obra => {
+                    // Adicionar na lista
+                    const item = document.createElement('div');
+                    item.className = 'obra-item';
+                    item.innerHTML = `
+                        <div class="obra-nome">${obra.nome}</div>
+                        <div class="obra-endereco">${obra.endereco || 'Endereço não informado'}</div>
+                        <div class="obra-responsavel">Resp: ${obra.responsavel || 'Não informado'}</div>
+                        ${currentUser && currentUser.tipo === 'admin' ? `
+                        <div class="obra-actions">
+                            <button class="btn-icon btn-edit" onclick="editObra(event, ${obra.id})" title="Editar">✏️</button>
+                            <button class="btn-icon btn-delete" onclick="deleteObra(event, ${obra.id}, '${obra.nome}')" title="Excluir">🗑️</button>
+                        </div>
+                        ` : ''}
+                    `;
+                    item.onclick = (e) => {
+                        if (!e.target.closest('.obra-actions')) {
+                            selectObra(obra);
+                        }
+                    };
+                    obrasList.appendChild(item);
+                    
+                    // Adicionar marcador no mapa
+                    const marker = L.marker([obra.latitude, obra.longitude])
+                        .bindPopup(`
+                            <div style="min-width:200px;">
+                                <h3 style="margin:0 0 8px 0; color:#0078d4;">${obra.nome}</h3>
+                                ${obra.endereco ? `<p style="margin:4px 0;"><strong>📍</strong> ${obra.endereco}</p>` : ''}
+                                ${obra.responsavel ? `<p style="margin:4px 0;"><strong>👤</strong> ${obra.responsavel}</p>` : ''}
+                                ${obra.descricao ? `<p style="margin:4px 0;">${obra.descricao}</p>` : ''}
+                            </div>
+                        `);
+                    marker.addTo(map);
+                    marker.obraData = obra;
+                    markers.push(marker);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar obras:', error);
+            }
+        }
+        
+        // Selecionar obra
+        function selectObra(obra) {
+            console.log('Selecionando obra:', obra); // Debug
+            
+            // Remover active de todos os itens
+            document.querySelectorAll('.obra-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Adicionar active ao item clicado
+            event.currentTarget.classList.add('active');
+            
+            // Centralizar mapa na obra com zoom
+            if (obra.latitude && obra.longitude) {
+                map.setView([obra.latitude, obra.longitude], 16);
+                
+                // Abrir popup do marcador
+                markers.forEach(marker => {
+                    const markerLatLng = marker.getLatLng();
+                    if (markerLatLng.lat === obra.latitude && markerLatLng.lng === obra.longitude) {
+                        marker.openPopup();
+                    }
+                });
+            } else {
+                alert('Coordenadas inválidas para esta obra');
+            }
+        }
+        
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            document.getElementById('toggleIcon').textContent = 
+                sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        }
+        
+        // Modals
+        document.getElementById('btnNovaObra')?.addEventListener('click', () => {
+            document.getElementById('modalObraTitle').textContent = 'Cadastrar Nova Obra';
+            document.getElementById('formObra').reset();
+            document.getElementById('obraId').value = '';
+            document.getElementById('modalObra').classList.add('active');
+        });
+        
+        document.getElementById('btnNovoUsuario')?.addEventListener('click', () => {
+            document.getElementById('modalUsuario').classList.add('active');
+        });
+        
+        document.getElementById('btnNovoEngenheiro')?.addEventListener('click', () => {
+            loadEngenheiros();
+            document.getElementById('modalEngenheiros').classList.add('active');
+        });
+        
+        document.getElementById('btnDisparoWhatsapp')?.addEventListener('click', () => {
+            loadObrasSelect('disparoObra');
+            document.getElementById('modalDisparo').classList.add('active');
+        });
+        
+        // Função para fechar modais
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            
+            // Se fechar modal de formulário de engenheiro, voltar para lista
+            if (modalId === 'modalEngenheiroForm') {
+                document.getElementById('modalEngenheiros').classList.add('active');
+            }
+        }
+        
+        // Toggle select de obra no disparo
+        function toggleObraSelect() {
+            const filtro = document.getElementById('disparoFiltro').value;
+            const obraGroup = document.getElementById('disparoObraGroup');
+            obraGroup.style.display = filtro === 'obra_especifica' ? 'block' : 'none';
+        }
+        
+        // Carregar engenheiros
+        async function loadEngenheiros() {
+            try {
+                const response = await fetch('/api/engenheiros', { credentials: 'include' });
+                const engenheiros = await response.json();
+                
+                const lista = document.getElementById('engenheirosLista');
+                lista.innerHTML = '';
+                
+                if (engenheiros.length === 0) {
+                    lista.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">Nenhum engenheiro cadastrado</p>';
+                    return;
+                }
+                
+                engenheiros.forEach(eng => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'border:1px solid #ddd; padding:15px; margin-bottom:10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${eng.nome}</strong><br>
+                            <small>📱 ${eng.whatsapp} ${eng.email ? '| 📧 ' + eng.email : ''}</small><br>
+                            <small>🏗️ ${eng.localizacao_nome || 'Sem obra associada'}</small>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-icon btn-edit" onclick="editEngenheiro(${eng.id})" title="Editar">✏️</button>
+                            <button class="btn-icon btn-delete" onclick="deleteEngenheiro(${eng.id}, '${eng.nome}')" title="Excluir">🗑️</button>
+                        </div>
+                    `;
+                    lista.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar engenheiros:', error);
+            }
+        }
+        
+        // Novo engenheiro
+        function novoEngenheiro() {
+            document.getElementById('modalEngenheiroTitle').textContent = 'Cadastrar Engenheiro';
+            document.getElementById('formEngenheiro').reset();
+            document.getElementById('engenheiroId').value = '';
+            loadObrasSelect('engenheiroObra');
+            document.getElementById('modalEngenheiros').classList.remove('active');
+            document.getElementById('modalEngenheiroForm').classList.add('active');
+        }
+        
+        // Editar engenheiro
+        async function editEngenheiro(id) {
+            try {
+                const response = await fetch('/api/engenheiros', { credentials: 'include' });
+                const engenheiros = await response.json();
+                const eng = engenheiros.find(e => e.id === id);
+                
+                if (eng) {
+                    document.getElementById('modalEngenheiroTitle').textContent = 'Editar Engenheiro';
+                    document.getElementById('engenheiroId').value = eng.id;
+                    document.getElementById('engenheiroNome').value = eng.nome;
+                    document.getElementById('engenheiroWhatsapp').value = eng.whatsapp;
+                    document.getElementById('engenheiroEmail').value = eng.email || '';
+                    document.getElementById('engenheiroCargo').value = eng.cargo || '';
+                    await loadObrasSelect('engenheiroObra');
+                    document.getElementById('engenheiroObra').value = eng.localizacao_id || '';
+                    document.getElementById('modalEngenheiros').classList.remove('active');
+                    document.getElementById('modalEngenheiroForm').classList.add('active');
+                }
+            } catch (error) {
+                alert('Erro ao carregar dados do engenheiro');
+            }
+        }
+        
+        // Deletar engenheiro
+        let deleteEngenheiroId = null;
+        function deleteEngenheiro(id, nome) {
+            if (confirm(`Tem certeza que deseja excluir o engenheiro "${nome}"?`)) {
+                fetch(`/api/engenheiros/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                }).then(response => {
+                    if (response.ok) {
+                        loadEngenheiros();
+                    } else {
+                        alert('Erro ao excluir engenheiro');
+                    }
+                });
+            }
+        }
+        
+        // Carregar obras no select
+        async function loadObrasSelect(selectId) {
+            try {
+                const response = await fetch('/api/localizacoes', { credentials: 'include' });
+                const obras = await response.json();
+                
+                const select = document.getElementById(selectId);
+                select.innerHTML = selectId === 'engenheiroObra' ? '<option value="">Nenhuma</option>' : '<option value="">Selecione uma obra</option>';
+                
+                obras.forEach(obra => {
+                    const option = document.createElement('option');
+                    option.value = obra.id;
+                    option.textContent = obra.nome;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar obras:', error);
+            }
+        }
+        
+        // Form Engenheiro
+        document.getElementById('formEngenheiro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('engenheiroId').value;
+            const data = {
+                nome: document.getElementById('engenheiroNome').value.trim(),
+                whatsapp: document.getElementById('engenheiroWhatsapp').value.trim().replace(/\D/g, ''),
+                email: document.getElementById('engenheiroEmail').value.trim() || null,
+                cargo: document.getElementById('engenheiroCargo').value.trim() || null,
+                localizacao_id: document.getElementById('engenheiroObra').value || null
+            };
+            
+            try {
+                const url = id ? `/api/engenheiros/${id}` : '/api/engenheiros';
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert(id ? 'Engenheiro atualizado!' : 'Engenheiro cadastrado!');
+                    closeModal('modalEngenheiroForm');
+                    document.getElementById('modalEngenheiros').classList.add('active');
+                    loadEngenheiros();
+                } else {
+                    const error = await response.json();
+                    alert(error.erro || 'Erro ao salvar engenheiro');
+                }
+            } catch (error) {
+                alert('Erro de conexão');
+            }
+        });
+        
+        // Form Disparo WhatsApp
+        document.getElementById('formDisparo').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const filtro = document.getElementById('disparoFiltro').value;
+            const data = {
+                mensagem: document.getElementById('disparoMensagem').value.trim(),
+                tipo_filtro: filtro,
+                localizacao_id: filtro === 'obra_especifica' ? document.getElementById('disparoObra').value : null
+            };
+            
+            if (filtro === 'obra_especifica' && !data.localizacao_id) {
+                alert('Selecione uma obra');
+                return;
+            }
+            
+            if (!confirm('Confirma o envio das mensagens via WhatsApp?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/disparar-whatsapp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let detalhes = '';
+                    if (result.resultados) {
+                        detalhes = '\n\nDetalhes:\n' + result.resultados.map(r => 
+                            `${r.nome}: ${r.status}`
+                        ).join('\n');
+                    }
+                    alert(result.mensagem + (result.aviso ? '\n\n⚠️ ' + result.aviso : '') + detalhes);
+                    closeModal('modalDisparo');
+                    document.getElementById('formDisparo').reset();
+                    checkWhatsAppStatus();
+                } else {
+                    alert(result.erro || 'Erro ao enviar mensagens');
+                }
+            } catch (error) {
+                alert('Erro de conexão');
+            }
+        });
+        
+        // Logout
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            window.location.href = '/login';
+        }
+        
+        // Inicializar
+        checkAuth();
+    </script>
+</body>
+</html>
