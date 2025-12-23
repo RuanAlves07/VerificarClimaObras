@@ -88,6 +88,7 @@ def create_app():
         return jsonify({"obras": resultados})
     
     with app.app_context():
+        db.drop_all()
         db.create_all()
         
         # Criar usuário admin padrão se não existir

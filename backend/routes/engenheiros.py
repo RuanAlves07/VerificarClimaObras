@@ -108,8 +108,16 @@ def disparar_whatsapp():
     # Preparar lista de destinatários
     recipients = [{'nome': eng.nome, 'whatsapp': eng.whatsapp} for eng in engenheiros]
     
-    # Enviar mensagens via Evolution API
-    whatsapp_service = WhatsAppService()
+    # Inicializar Evolution API
+    try:
+        whatsapp_service = WhatsAppService()
+    except ValueError as e:
+        return jsonify({
+            'erro': 'Evolution API não configurada',
+            'detalhes': str(e),
+            'quantidade': len(engenheiros),
+            'status': 'nao_configurado'
+        }), 400
     
     # Verificar conexão
     if not whatsapp_service.check_connection():
@@ -158,10 +166,16 @@ def whatsapp_status():
     if session.get('usuario_tipo') != 'admin':
         return jsonify({'erro': 'Não autorizado'}), 403
     
-    whatsapp_service = WhatsAppService()
-    conectado = whatsapp_service.check_connection()
-    
-    return jsonify({
-        'conectado': conectado,
-        'mensagem': 'Evolution API conectada' if conectado else 'Evolution API desconectada'
-    }), 200
+    try:
+        whatsapp_service = WhatsAppService()
+        conectado = whatsapp_service.check_connection()
+        
+        return jsonify({
+            'conectado': conectado,
+            'mensagem': 'Evolution API conectada' if conectado else 'Evolution API desconectada'
+        }), 200
+    except ValueError as e:
+        return jsonify({
+            'conectado': False,
+            'mensagem': f'Erro: {str(e)}'
+        }), 400

@@ -6,9 +6,13 @@ load_dotenv()
 
 class WhatsAppService:
     def __init__(self):
-        self.api_url = os.getenv('EVOLUTION_API_URL', 'http://localhost:8080')
-        self.api_key = os.getenv('EVOLUTION_API_KEY', '')
-        self.instance_name = os.getenv('EVOLUTION_INSTANCE_NAME', 'clima_obras')
+        self.api_url = os.getenv('EVOLUTION_API_URL')
+        self.api_key = os.getenv('EVOLUTION_API_KEY')
+        self.instance_name = os.getenv('EVOLUTION_INSTANCE_NAME')
+        
+        # Validar variáveis obrigatórias
+        if not all([self.api_url, self.api_key, self.instance_name]):
+            raise ValueError('Variáveis de ambiente Evolution API não configuradas')
     
     def send_message(self, number, message):
         """
@@ -39,7 +43,7 @@ class WhatsAppService:
             
             response = requests.post(url, json=payload, headers=headers, timeout=10)
             
-            if response.status_code == 200 or response.status_code == 201:
+            if response.status_code in [200, 201]:
                 return {
                     'success': True,
                     'message': 'Mensagem enviada com sucesso',
